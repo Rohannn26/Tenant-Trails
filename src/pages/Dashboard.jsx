@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apartments } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
 
@@ -51,11 +51,16 @@ function Dashboard() {
         <h2 className="logo">TenantTrails</h2>
 
         <div className="dashboard-user">
-          <span>Welcome, {user?.name}</span>
-          <button onClick={handleLogout} className="text-button">
-            Sign out
-          </button>
-        </div>
+  <span>Welcome, {user?.name}</span>
+
+  <Link to="/profile" className="text-link">
+    Profile
+  </Link>
+
+  <button onClick={handleLogout} className="text-button">
+    Sign out
+  </button>
+</div>
       </nav>
 
       <main className="dashboard-container">
@@ -109,28 +114,36 @@ function Dashboard() {
 
         <section className="apartment-grid">
           {filteredApartments.map((apt) => (
-            <article key={apt.id} className="apartment-card">
-              <div className="apartment-image-wrap">
-                <img src={apt.image} alt={apt.name} className="apartment-image" />
-                <span className="rating-badge">⭐ {apt.rating}</span>
-              </div>
+  <Link
+    key={apt.id}
+    to={`/apartment/${apt.id}`}
+    className="apartment-card-link"
+  >
+    <article className="apartment-card">
+      <div className="apartment-image-wrap">
+        <img src={apt.image} alt={apt.name} className="apartment-image" />
+        <span className="rating-badge">⭐ {apt.rating}</span>
+      </div>
 
-              <div className="apartment-content">
-                <h3>{apt.name}</h3>
-                <p className="address">
-                  {apt.address} · {apt.neighbourhood}
-                </p>
+      <div className="apartment-content">
+        <h3>{apt.name}</h3>
+        <p className="address">
+          {apt.address} · {apt.neighbourhood}
+        </p>
 
-                <div className="tag-row">
-                  {apt.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-
-                <p className="review-count">{apt.reviews} review{apt.reviews > 1 ? "s" : ""}</p>
-              </div>
-            </article>
+        <div className="tag-row">
+          {apt.tags.map((tag) => (
+            <span key={tag}>{tag}</span>
           ))}
+        </div>
+
+        <p className="review-count">
+          {apt.reviews} review{apt.reviews > 1 ? "s" : ""}
+        </p>
+      </div>
+    </article>
+  </Link>
+))}
         </section>
 
         {filteredApartments.length === 0 && (

@@ -1,22 +1,134 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useState } from "react";
-import { apartments } from "../data/mockData";
+
+import { apiFetch } from "../api";
 import AISummary from "../components/AISummary";
 import ReviewCard from "../components/ReviewCard";
 import ReviewDialog from "../components/ReviewDialog";
 import StarRating from "../components/StarRating";
 import { useAuth } from "../context/AuthContext";
-import { useReviews } from "../context/ReviewContext";
+
+function formatReviewDate(date) {
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Recent review";
+  }
+
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsedDate);
+}
 
 function ApartmentDetail() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { reviews, addReview } = useReviews();
 
-  const apartment = apartments.find((apt) => apt.id === Number(id));
+  const [apartment, setApartment] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showReviewDialog, setShowReviewDialog] = useState(false);
 
-  if (!apartment) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadApartmentData() {
+      try {
+        const [apartmentData, reviewData] = await Promise.all([
+          apiFetch(`/api/apartments/${id}`),
+          apiFetch(`/api/apartments/${id}/reviews`),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setApartment(apartmentData);
+        setReviews(reviewData);
+        setError("");
+      } catch (loadError) {
+        if (isMounted) {
+          setError(loadError.message || "Could not load apartment.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadApartmentData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const apartmentDetails = useMemo(() => {
+    if (!apartment) {
+      return null;
+    }
+
+    return {
+      ...apartment,
+      rating: Number(apartment.rating ?? 0),
+      reviews: Number(apartment.reviews ?? 0),
+      aiSummary:
+        apartment.aiSummary ||
+        "No AI summary is available yet. Check the reviews below for current tenant feedback.",
+      aiIssues: Array.isArray(apartment.aiIssues) ? apartment.aiIssues : [],
+    };
+  }, [apartment]);
+
+  const apartmentReviews = useMemo(
+    () =>
+      reviews.map((review) => ({
+        ...review,
+        author: review.author || "Anonymous tenant",
+        date: formatReviewDate(review.date),
+      })),
+    [reviews]
+  );
+
+  async function refreshApartmentData() {
+    const [apartmentData, reviewData] = await Promise.all([
+      apiFetch(`/api/apartments/${id}`),
+      apiFetch(`/api/apartments/${id}/reviews`),
+    ]);
+
+    setApartment(apartmentData);
+    setReviews(reviewData);
+  }
+
+  async function handleSubmitReview(newReview) {
+    await apiFetch(`/api/apartments/${id}/reviews`, {
+      method: "POST",
+      body: JSON.stringify({
+        rating: newReview.rating,
+        body: newReview.body,
+      }),
+    });
+
+    await refreshApartmentData();
+  }
+
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <main className="dashboard-container">
+          <Link to="/dashboard" className="back-link">
+            ← Back to all apartments
+          </Link>
+          <p className="empty-state">Loading apartment...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (error === "Apartment not found") {
     return (
       <div className="dashboard-page">
         <main className="dashboard-container">
@@ -29,23 +141,17 @@ function ApartmentDetail() {
     );
   }
 
-  const apartmentReviews = reviews.filter(
-    (review) => review.aptId === apartment.id
-  );
-
-  function handleSubmitReview(newReview) {
-    const review = {
-      id: Date.now(),
-      aptId: apartment.id,
-      apartmentName: apartment.name,
-      userId: user?.id || "alex",
-      author: user?.name || "Alex Mitchell",
-      rating: newReview.rating,
-      date: "Today",
-      body: newReview.body,
-    };
-
-    addReview(review);
+  if (error || !apartmentDetails) {
+    return (
+      <div className="dashboard-page">
+        <main className="dashboard-container">
+          <Link to="/dashboard" className="back-link">
+            ← Back to all apartments
+          </Link>
+          <p className="empty-state">Could not load apartment.</p>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -72,25 +178,29 @@ function ApartmentDetail() {
 
         <section className="detail-header-card">
           <div>
-            <h1>{apartment.name}</h1>
+            <h1>{apartmentDetails.name}</h1>
             <p>
-              {apartment.address} · {apartment.neighbourhood}
+              {apartmentDetails.address} · {apartmentDetails.neighbourhood}
             </p>
-            <span>High-rise tower in a quiet residential neighbourhood.</span>
+            <span>
+              {apartmentDetails.verified
+                ? "Verified apartment with recent tenant activity."
+                : "Tenant reviews help build the picture for this apartment."}
+            </span>
           </div>
 
           <div className="detail-rating">
-            <strong>{apartment.rating}</strong>
-            <StarRating rating={apartment.rating} />
-            <span>{apartment.reviews} reviews</span>
+            <strong>{apartmentDetails.rating}</strong>
+            <StarRating rating={apartmentDetails.rating} />
+            <span>{apartmentDetails.reviews} reviews</span>
           </div>
         </section>
 
         <div className="detail-layout">
           <div className="detail-main">
             <AISummary
-              summary={apartment.aiSummary}
-              issues={apartment.aiIssues}
+              summary={apartmentDetails.aiSummary}
+              issues={apartmentDetails.aiIssues}
             />
 
             <section className="reviews-section">
@@ -114,6 +224,12 @@ function ApartmentDetail() {
                   author={review.author}
                 />
               ))}
+
+              {apartmentReviews.length === 0 && (
+                <p className="empty-state">
+                  No reviews yet. Be the first to share your experience.
+                </p>
+              )}
             </section>
           </div>
 
@@ -122,19 +238,19 @@ function ApartmentDetail() {
               <h3>Property Info</h3>
               <div className="info-row">
                 <span>Landlord</span>
-                <strong>{apartment.landlord}</strong>
+                <strong>{apartmentDetails.landlord}</strong>
               </div>
               <div className="info-row">
                 <span>Units</span>
-                <strong>{apartment.units}</strong>
+                <strong>{apartmentDetails.units}</strong>
               </div>
               <div className="info-row">
                 <span>Year built</span>
-                <strong>{apartment.yearBuilt}</strong>
+                <strong>{apartmentDetails.built}</strong>
               </div>
               <div className="info-row">
                 <span>Neighbourhood</span>
-                <strong>{apartment.neighbourhood}</strong>
+                <strong>{apartmentDetails.neighbourhood}</strong>
               </div>
             </section>
 

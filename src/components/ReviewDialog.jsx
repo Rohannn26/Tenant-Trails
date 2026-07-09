@@ -4,8 +4,9 @@ function ReviewDialog({ onClose, onSubmit, initialReview = null }) {
   const [rating, setRating] = useState(initialReview?.rating || 0);
   const [body, setBody] = useState(initialReview?.body || "");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (rating === 0) {
@@ -18,12 +19,21 @@ function ReviewDialog({ onClose, onSubmit, initialReview = null }) {
       return;
     }
 
-    onSubmit({
-      rating,
-      body,
-    });
+    try {
+      setSubmitting(true);
+      setError("");
 
-    onClose();
+      await onSubmit({
+        rating,
+        body,
+      });
+
+      onClose();
+    } catch (submitError) {
+      setError(submitError.message || "Could not submit review.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -64,8 +74,12 @@ function ReviewDialog({ onClose, onSubmit, initialReview = null }) {
           Cancel
         </button>
 
-        <button type="submit" className="primary-action">
-          {initialReview ? "Save Changes" : "Submit Review"}
+        <button type="submit" className="primary-action" disabled={submitting}>
+          {submitting
+            ? "Saving..."
+            : initialReview
+              ? "Save Changes"
+              : "Submit Review"}
         </button>
       </div>
     </form>

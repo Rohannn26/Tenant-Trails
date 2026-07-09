@@ -9,6 +9,7 @@ function Login() {
   const [email, setEmail] = useState("alex@dal.ca");
   const [password, setPassword] = useState("password123");
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
 
   function validate() {
     const newErrors = {};
@@ -28,22 +29,26 @@ function Login() {
     return newErrors;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const validationErrors = validate();
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      setSubmitError("");
       return;
     }
 
-    login({
-      name: "Alex",
-      email,
-    });
+    setErrors({});
+    setSubmitError("");
 
-    navigate("/dashboard");
+    try {
+      await login(email, password);
+      navigate("/dashboard");
+    } catch (error) {
+      setSubmitError(error.message);
+    }
   }
 
   return (
@@ -84,6 +89,7 @@ function Login() {
           <button type="submit" className="full-button">
             Sign In
           </button>
+          {submitError && <span className="error">{submitError}</span>}
         </form>
 
         <p className="auth-switch">

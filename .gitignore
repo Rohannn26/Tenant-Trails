@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.env
+*.zip
+dist
+node_modules
+tenanttrails-api/.env
+tenanttrails-api/node_modules

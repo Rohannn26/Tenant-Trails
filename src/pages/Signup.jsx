@@ -11,6 +11,7 @@ function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState("");
 
   function validate() {
     const newErrors = {};
@@ -40,22 +41,26 @@ function Signup() {
     return newErrors;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const validationErrors = validate();
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      setSubmitError("");
       return;
     }
 
-    signup({
-      name,
-      email,
-    });
+    setErrors({});
+    setSubmitError("");
 
-    navigate("/dashboard");
+    try {
+      await signup(name, email, password);
+      navigate("/dashboard");
+    } catch (error) {
+      setSubmitError(error.message);
+    }
   }
 
   return (
@@ -120,6 +125,7 @@ function Signup() {
           <button type="submit" className="full-button">
             Create Account
           </button>
+          {submitError && <span className="error">{submitError}</span>}
         </form>
 
         <p className="auth-switch">

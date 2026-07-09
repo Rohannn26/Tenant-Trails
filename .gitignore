@@ -29,3 +29,6 @@ dist
 node_modules
 tenanttrails-api/.env
 tenanttrails-api/node_modules
+
+.env
+**/.env
